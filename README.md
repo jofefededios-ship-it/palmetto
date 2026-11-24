@@ -44,6 +44,45 @@ full build, Python 3.12+, .NET 8 SDK, Visual Studio 2022 with the C++ tools and 
 [Vulkan SDK](https://vulkan.lunarg.com/) (`spirv-as`, `spirv-val`), LLVM 21+ with the **AMDGPU** target for
 `llvm-mc` (the official Windows build has none; `scripts\build_llvm_mc.ps1` builds one), and `ffmpeg` on PATH.
 
+def test_restore_vop3p_dot4_recovers_raw_fields(self):
+    raw = bytes.fromhex("08 50 16 CC 01 05 0E 0C")
+    enc = bytes.fromhex("08 40 16 CC 01 05 0E 1C")
+
+    ins = {"op": "v_dot4_i32_i8", "mods": [], "enc": ""}
+
+    self.assertTrue(
+        rdna2spirv.restore_vop3p_dot4(ins, raw, enc)
+    )
+    self.assertIn("op_sel:[0,1,0]", ins["mods"])
+    self.assertIn("op_sel_hi:[1,0,1]", ins["mods"])
+    self.assertEqual(ins["enc"], raw.hex())
+
+
+def test_restore_vop3p_dot4_rejects_foreign_bit_flip(self):
+    raw = bytes.fromhex("08 50 16 CC 01 05 0E 0C")
+    enc = bytes.fromhex("08 40 16 CC 01 05 0E 1C")
+
+    corrupted = bytes([raw[0] ^ 0x01]) + raw[1:]
+
+    ins = {"op": "v_dot4_i32_i8", "mods": [], "enc": ""}
+
+    self.assertFalse(
+        rdna2spirv.restore_vop3p_dot4(ins, corrupted, enc)
+    )
+
+
+def test_restore_vop3p_dot4_rejects_wrong_opcode(self):
+    raw = bytearray.fromhex("08 50 16 CC 01 05 0E 0C")
+    enc = bytes.fromhex("08 40 16 CC 01 05 0E 1C")
+
+    raw[2] = 0x17
+
+    ins = {"op": "v_dot4_i32_i8", "mods": [], "enc": ""}
+
+    self.assertFalse(
+        rdna2spirv.restore_vop3p_dot4(ins, bytes(raw), enc)
+    )
+
 ```powershell
 git clone --recursive https://github.com/luizwidmer/palmetto
 cd palmetto
